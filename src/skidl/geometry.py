@@ -2,7 +2,7 @@
 
 # The MIT License (MIT) - Copyright (c) Dave Vandenbout.
 
-from math import sqrt, sin, cos, radians
+from math import sqrt, sin, cos, radians, atan2, degrees
 from copy import copy
 
 from .utilities import export_to_all
@@ -152,6 +152,18 @@ class Tx:
     def no_translate(self):
         """Return Tx with translation set to (0,0)."""
         return Tx(a=self.a, b=self.b, c=self.c, d=self.d)
+
+    def get_rotation_deg(self):
+        """Return the rotation angle in degrees from the matrix.
+           Assumes the matrix represents a rotation without shear or non-uniform scaling.
+        """
+        # atan2(y, x) or atan2(sin_theta, cos_theta)
+        # For matrix [[a, c], [b, d]], if it's a pure rotation:
+        # a = cos(theta), b = sin(theta), c = -sin(theta), d = cos(theta)
+        # So theta = atan2(b, a)
+        # Or theta = atan2(-c, d)
+        # Taking atan2(self.b, self.a) should give the angle.
+        return degrees(atan2(self.b, self.a))
 
 
 # Some common rotations.

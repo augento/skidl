@@ -23,6 +23,7 @@ from skidl import (
     SubCircuit,
     generate_schematic,
     subcircuit,
+    KICAD8,
 )
 from skidl.schematics.place import PlacementFailure
 from skidl.schematics.route import RoutingFailure
@@ -65,7 +66,7 @@ if os.getenv("DEBUG_DRAW"):
     # sch_options["draw_switchbox_routing"] = True
 
 
-def create_schematic(num_trials=1, flatness=1.0, script_stack_level=1, report_failures=True):
+def create_schematic(num_trials=1, flatness=1.0, script_stack_level=1, report_failures=True, tool=None):
     output_file_root = "./test_data/schematic_output"
     python_version = ".".join([str(n) for n in sys.version_info[0:3]])
     output_dir = os.path.join(output_file_root, python_version)
@@ -106,6 +107,7 @@ def create_schematic(num_trials=1, flatness=1.0, script_stack_level=1, report_fa
                 filepath=output_dir,
                 top_name=top_name + "_" + str(trial),
                 flatness=flatness,
+                tool=tool,
                 **sch_options
             )
         except (PlacementFailure, RoutingFailure):
@@ -301,25 +303,26 @@ def test_gen_sch_place_2():
     create_schematic(flatness=0.5)
 
 
-@pytest.mark.xfail(raises=(RoutingFailure))
-def test_gen_sch_very_simple():
+def test_gen_sch_kicad8_very_simple():
     q = Part(
-        lib="Device.lib",
+        lib="Device",
         name="Q_PNP_CBE",
         footprint="Package_TO_SOT_SMD:SOT-223-3_TabPin2",
         dest=TEMPLATE,
         value="",
-        # value="Q_NPN_CBE",
     )
     r = Part(
-        "Device.lib", "R", value="", footprint="Resistor_SMD:R_0805_2012Metric", dest=TEMPLATE
+        lib="Device",
+        value="", 
+        name="R", 
+        footprint="Resistor_SMD:R_0805_2012Metric", 
+        dest=TEMPLATE
     )
-    gndt = Part("power", "GND", footprint="TestPoint:TestPoint_Pad_D4.0mm", dest=TEMPLATE)
-    # vcct = Part("power", "VCC", footprint="TestPoint:TestPoint_Pad_D4.0mm", dest=TEMPLATE)
+    gndt = Part(lib="power", name="GND", footprint="TestPoint:TestPoint_Pad_D4.0mm", dest=TEMPLATE)
 
     q1 = q()
     (r() | r()) & q1["B,E"] & r()  & gndt()
-    create_schematic(flatness=1.0)
+    create_schematic(flatness=1.0, tool=KICAD8)
 
 
 @pytest.mark.xfail(raises=RoutingFailure)

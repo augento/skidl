@@ -320,6 +320,15 @@ def parse_lib_part(part, partial_parse):
                     pin_length = item[1]
                     # pin_length = round(mils_per_mm * pin_length)
 
+            # Convert numeric angle to character orientation
+            orientation_char_map = {
+                0: "R", 
+                90: "D", 
+                180: "L", 
+                270: "U"
+            }
+            char_orientation = orientation_char_map.get(pin_angle, "R") # Default to R if angle is not standard
+
             # Add the pins that were found to the total part. Include the unit identifier
             # in the pin so we can find it later when the part unit is created.
             part.add_pins(
@@ -331,8 +340,8 @@ def parse_lib_part(part, partial_parse):
                     x=pin_x,
                     y=pin_y,
                     length=pin_length,
-                    rotation=pin_angle,
-                    orientation=pin_angle,
+                    rotation=pin_angle, # Keep original angle as rotation
+                    orientation=char_orientation, # Use character U, D, L, R
                 )
             )
 
