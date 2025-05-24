@@ -172,24 +172,22 @@ def calc_hier_label_bbox(label, dir):
         BBox: Bounding box for the label and hierarchical terminal.
     """
 
-    raise NotImplementedError
-
-    # Rotation matrices for each direction.
-    lbl_tx = {
-        "U": tx_rot_90,  # Pin on bottom pointing upwards.
-        "D": tx_rot_270,  # Pin on top pointing down.
-        "L": tx_rot_180,  # Pin on right pointing left.
-        "R": tx_rot_0,  # Pin on left pointing right.
-    }
-
     # Calculate length and height of label + hierarchical marker.
-    lbl_len = len(label) * PIN_LABEL_FONT_SIZE + HIER_TERM_SIZE
-    lbl_hgt = max(PIN_LABEL_FONT_SIZE, HIER_TERM_SIZE)
+    # Using default font size of 1.27mm converted to mils
+    font_size_mils = 1.27 * mils_per_mm
+    lbl_len = len(label) * font_size_mils + HIER_TERM_SIZE
+    lbl_hgt = max(font_size_mils, HIER_TERM_SIZE)
 
     # Create bbox for label on left followed by marker on right.
     bbox = BBox(Point(0, lbl_hgt / 2), Point(-lbl_len, -lbl_hgt / 2))
 
-    # Rotate the bbox in the given direction.
-    bbox *= lbl_tx[dir]
+    # Rotation matrices for each direction.
+    if dir == "U":
+        bbox *= Tx(a=0, b=-1, c=1, d=0)  # 90 degree rotation
+    elif dir == "D":
+        bbox *= Tx(a=0, b=1, c=-1, d=0)  # 270 degree rotation
+    elif dir == "L":
+        bbox *= Tx(a=-1, b=0, c=0, d=-1)  # 180 degree rotation
+    # "R" case: no rotation needed (0 degrees)
 
     return bbox

@@ -33,8 +33,10 @@ class Position(Point, Serializable):
     angle: Optional[float]
     
     def __str__(self) -> str:
-        return f'(at {self.x} {self.y} {self.angle or ''})'
+        angle = self.angle if self.angle is not None else 0
+        return f'(at {self.x} {self.y} {angle})'
   
+@dataclass  
 class SList[T: Serializable](Serializable):
     elements: list[T]
     
@@ -164,13 +166,13 @@ class Font(Serializable):
     italic: bool = False
     
     def __str__(self) -> str:
-        face = f'(face {self.face})' if not self.face is None else ''
-        thickness = f'(thickness {self.thickness})' if not self.thickness is None else ''
-        bold = 'bold' if self.bold else ''
-        italic = 'italic' if self.italic else ''
-        line_spacing = f'(line_spacing {self.line_spacing})' if not self.line_spacing is None else ''
+        face = f'\n\t\t\t\t\t(face {self.face})' if self.face is not None else ''
+        thickness = f'\n\t\t\t\t\t(thickness {self.thickness})' if self.thickness is not None else ''
+        bold = '\n\t\t\t\t\tbold' if self.bold else ''
+        italic = '\n\t\t\t\t\titalic' if self.italic else ''
+        line_spacing = f'\n\t\t\t\t\t(line_spacing {self.line_spacing})' if self.line_spacing is not None else ''
         
-        return f'(font {face} (size {self.size[0]} {self.size[1]}) {thickness} {bold} {italic} {line_spacing})'
+        return f'(font{face}\n\t\t\t\t\t(size {self.size[0]} {self.size[1]}){thickness}{bold}{italic}{line_spacing}\n\t\t\t\t)'
  
 @dataclass 
 class Justify(Serializable):
@@ -187,10 +189,10 @@ class Justify(Serializable):
     mirror: bool = False
     
     def __str__(self) -> str:
-        horizontally = self.horizontally.value if not self.horizontally is None else '' 
-        vertically = self.vertically.value if not self.vertically is None else ''
-        mirror = 'mirror' if self.mirror else ''
-        return f'(justify {horizontally} {vertically} {mirror})'
+        horizontally = f' {self.horizontally.value}' if self.horizontally is not None else '' 
+        vertically = f' {self.vertically.value}' if self.vertically is not None else ''
+        mirror = ' mirror' if self.mirror else ''
+        return f'(justify{horizontally}{vertically}{mirror})'
   
 @dataclass 
 class TextEffects(Serializable):
@@ -199,9 +201,9 @@ class TextEffects(Serializable):
     hide: bool = False
     
     def __str__(self) -> str:
-        justify = str(self.justify) if not self.justify is None else ''
-        hide = 'hide' if not self.hide is None else ''
-        return f'(effects {self.font} {justify} {hide})'
+        justify = f'\n\t\t\t\t{self.justify}' if self.justify is not None else ''
+        hide = '\n\t\t\t\t(hide yes)' if self.hide else ''
+        return f'(effects\n\t\t\t\t{self.font}{justify}{hide}\n\t\t\t)'
     
 @dataclass
 class Text(Serializable):
@@ -225,16 +227,24 @@ class Label(Serializable):
     
 @dataclass
 class GlobalLabel(Serializable):
-    """
-    TODO
-    """
+    text: str
+    position: Position
+    effects: TextEffects
+    unique_identifier: UniversallyUniqueIdentifier
+    
+    def __str__(self) -> str:
+        return f'(global_label "{re.escape(self.text)}" {self.position} {self.effects} {self.unique_identifier})'
    
 @dataclass 
 class HierarchicalLabel(Serializable):
-    """
-    TODO
-    """
-   
+    text: str
+    position: Position
+    effects: TextEffects
+    unique_identifier: UniversallyUniqueIdentifier
+    
+    def __str__(self) -> str:
+        return f'(hierarchical_label "{re.escape(self.text)}" {self.position} {self.effects} {self.unique_identifier})'
+    
 @dataclass 
 class Property(Serializable):
     key: str
@@ -244,7 +254,7 @@ class Property(Serializable):
     effects: TextEffects
     
     def __str__(self) -> str:
-        return f'(property "{re.escape(self.key)}" "{re.escape(self.value)}" (id {self.id}) {self.position} {self.effects})'
+        return f'\t\t(property "{self.key}" "{self.value}"\n\t\t\t{self.position}\n\t\t\t{self.effects}\n\t\t)'
     
 @dataclass
 class Project(Serializable):
@@ -254,7 +264,7 @@ class Project(Serializable):
     unit: int
     
     def __str__(self) -> str:
-        return f'(project "{re.escape(self.name)}" (path "{re.escape(self.path)}" (reference "{re.escape(self.reference)}") (unit {self.unit})))'
+        return f'(project "{self.name}" (path "{self.path}" (reference "{self.reference}") (unit {self.unit})))'
     
 @dataclass
 class Symbol(Serializable):
@@ -270,20 +280,32 @@ class Symbol(Serializable):
     def __str__(self) -> str:
         in_bom = 'yes' if self.in_bom else 'no'
         on_board = 'yes' if self.on_board else 'no'
+        exclude_from_sim = 'no'  # Default value
+        dnp = 'no'  # Default value
+        fields_autoplaced = 'yes'  # Default value
         
-        return f'''
-        (symbol
-            "{re.escape(self.library_identifier)}"
-            {self.position}
-            (unit {self.unit})
-            (in_bom {in_bom})
-            (on_board {on_board})
-            {self.unique_identifier}
-            {self.properties}
-            (pin "1" (uuid e148648c-6605-4af1-832a-31eaf808c2f8))    
-            (instances
-                {self.instances}
-            )
-        )
-        '''
-        pass
+        # Format properties properly
+        properties_str = ""
+        if self.properties and self.properties.elements:
+            for prop in self.properties.elements:
+                properties_str += f"\t\t{prop}\n"
+        
+        # Format instances properly  
+        instances_str = ""
+        if self.instances and self.instances.elements:
+            for instance in self.instances.elements:
+                instances_str += f"\t\t\t{instance}\n"
+        
+        return f"""\t(symbol
+\t\t(lib_id "{self.library_identifier}")
+\t\t{self.position}
+\t\t(unit {self.unit})
+\t\t(exclude_from_sim {exclude_from_sim})
+\t\t(in_bom {in_bom})
+\t\t(on_board {on_board})
+\t\t(dnp {dnp})
+\t\t(fields_autoplaced {fields_autoplaced})
+\t\t{self.unique_identifier}
+{properties_str}\t\t(instances
+{instances_str}\t\t)
+\t)"""

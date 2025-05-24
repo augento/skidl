@@ -193,9 +193,32 @@ def part_to_kicad6(part, tx) -> str:
     properties = []
     
     # Reference property (F0)
+    # Try to get reference position from part symbol data
+    ref_x_offset = 0
+    ref_y_offset = 50  # Default fallback
+    
+    # Look for reference text positioning in draw_cmds
+    if hasattr(part, 'draw_cmds') and part.draw_cmds:
+        for unit_key, draw_objects in part.draw_cmds.items():
+            for obj in draw_objects:
+                if (isinstance(obj, list) and len(obj) > 0 and 
+                    hasattr(obj[0], 'value') and obj[0].value().lower() == 'text'):
+                    # Look for text objects that might be the reference
+                    for item in obj[1:]:
+                        if (isinstance(item, list) and len(item) > 1 and 
+                            hasattr(item[0], 'value') and item[0].value().lower() == 'at'):
+                            try:
+                                ref_x_offset = mm_to_mil(float(item[1]))  # Convert mm to mils
+                                ref_y_offset = mm_to_mil(float(item[2]))
+                                break
+                            except (ValueError, IndexError):
+                                pass
+            if ref_x_offset != 0 or ref_y_offset != 50:  # Found something
+                break
+    
     ref_pos = Position(
-        x=mil_to_mm(origin.x + part.draw[0].x if hasattr(part.draw[0], 'x') else origin.x),
-        y=mil_to_mm(origin.y + part.draw[0].y if hasattr(part.draw[0], 'y') else origin.y),
+        x=mil_to_mm(origin.x + ref_x_offset),
+        y=mil_to_mm(origin.y + ref_y_offset),
         angle=0
     )
     properties.append(Property(
@@ -489,7 +512,83 @@ def node_to_kicad6(node, sheet_tx=Tx()) -> str:
 
 
 # Re-export the main generation functions with modifications for KiCad 6+
-from ..kicad5.gen_schematic import preprocess_circuit, finalize_parts_and_nets
+from ..kicad5.gen_schematic import finalize_parts_and_nets
+from .bboxes import calc_symbol_bbox
+
+def preprocess_circuit(circuit, **options):
+    """Add stuff to parts & nets for doing placement and routing of schematics."""
+
+    def units(part):
+        if len(part.unit) == 0:
+            return [part]
+        else:
+            return part.unit.values()
+
+    def initialize(part):
+        """Initialize part or its part units."""
+
+        # Initialize the units of the part, or the part itself if it has no units.
+        pin_limit = options.get("orientation_pin_limit", 44)
+        for part_unit in units(part):
+            # Initialize transform matrix.
+            part_unit.tx = Tx.from_symtx(getattr(part_unit, "symtx", ""))
+
+            # Lock part orientation if symtx was specified. Also lock parts with a lot of pins
+            # since they're typically drawn the way they're supposed to be oriented.
+            # And also lock single-pin parts because these are usually power/ground and
+            # they shouldn't be flipped around.
+            num_pins = len(part_unit.pins)
+            part_unit.orientation_locked = getattr(part_unit, "symtx", False) or not (
+                1 < num_pins <= pin_limit
+            )
+
+            # Assign pins from the parent part to the part unit.
+            part_unit.grab_pins()
+
+            # Initialize pin attributes used for generating schematics.
+            for pin in part_unit:
+                pin.pt = Point(pin.x, pin.y)
+                pin.routed = False
+
+    def calc_part_bbox(part):
+        """Calculate the labeled bounding boxes and store it in the part."""
+
+        # Find part/unit bounding boxes excluding any net labels on pins.
+        # Use KiCad8-specific calc_symbol_bbox function
+        bare_bboxes = calc_symbol_bbox(part)[1:]
+
+        for part_unit, bare_bbox in zip(units(part), bare_bboxes):
+            # Expand the bounding box if it's too small in either dimension.
+            resize_wh = Vector(0, 0)
+            if bare_bbox.w < 100:
+                resize_wh.x = (100 - bare_bbox.w) / 2
+            if bare_bbox.h < 100:
+                resize_wh.y = (100 - bare_bbox.h) / 2
+            bare_bbox = bare_bbox.resize(resize_wh)
+
+            # Find expanded bounding box that includes any hier labels attached to pins.
+            part_unit.lbl_bbox = BBox()
+            part_unit.lbl_bbox.add(bare_bbox)
+            for pin in part_unit:
+                if pin.stub:
+                    # For KiCad8, we'll use a simple approximation for hierarchical label bbox
+                    # since calc_hier_label_bbox is not implemented
+                    hlbl_bbox = BBox(Point(-50, -10), Point(50, 10))  # Simple approximation
+                    # Move the label bbox to the pin location.
+                    hlbl_bbox *= Tx().move(pin.pt)
+                    # Update the bbox for the labelled part with this pin label.
+                    part_unit.lbl_bbox.add(hlbl_bbox)
+
+            # Set the active bounding box to the labeled version.
+            part_unit.bbox = part_unit.lbl_bbox
+
+    # Pre-process parts
+    for part in circuit.parts:
+        # Initialize part attributes used for generating schematics.
+        initialize(part)
+
+        # Compute bounding boxes around parts
+        calc_part_bbox(part)
 
 
 @export_to_all

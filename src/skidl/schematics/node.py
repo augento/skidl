@@ -150,7 +150,12 @@ class Node(Placer, Router):
         self.name = level_names[level]
 
         # File name for storing the schematic for this node.
-        base_filename = "_".join([self.top_name] + level_names[0 : level + 1]) + ".sch"
+        # Use appropriate extension based on the tool
+        if hasattr(self.tool_module, '__name__') and 'kicad8' in self.tool_module.__name__:
+            extension = ".kicad_sch"
+        else:
+            extension = ".sch"
+        base_filename = "_".join([self.top_name] + level_names[0 : level + 1]) + extension
         self.sheet_filename = base_filename
 
         if part_level == level:
