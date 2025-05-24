@@ -18,7 +18,10 @@ class Color(Serializable):
     alpha: Optional[int]
    
     def __str__(self) -> str:
-        return f'(color {self.r} {self.g} {self.b} {self.alpha or ''})'
+        if self.alpha is not None:
+            return f'(color {self.r} {self.g} {self.b} {self.alpha})'
+        else:
+            return f'(color {self.r} {self.g} {self.b})'
 
 @dataclass
 class Point(Serializable):
@@ -33,8 +36,10 @@ class Position(Point, Serializable):
     angle: Optional[float]
     
     def __str__(self) -> str:
-        angle = self.angle if self.angle is not None else 0
-        return f'(at {self.x} {self.y} {angle})'
+        if self.angle is not None:
+            return f'(at {self.x} {self.y} {self.angle})'
+        else:
+            return f'(at {self.x} {self.y})'
   
 @dataclass  
 class SList[T: Serializable](Serializable):
@@ -93,7 +98,7 @@ class UniversallyUniqueIdentifier(Serializable):
     
     
     def __str__(self) -> str:
-        return f'(uuid {str(self.uuid)})'
+        return f'(uuid "{str(self.uuid)}")'
    
 @dataclass 
 class Junction(Serializable):
@@ -103,7 +108,7 @@ class Junction(Serializable):
     diameter: Optional[int] = None
     
     def __str__(self) -> str:
-        return f'(junction {self.position} (diameter {self.diameter or 0}) {self.color} {self.unique_identifier})'
+        return f'(junction\n\t{self.position}\n\t(diameter {self.diameter or 0})\n\t{self.color}\n\t{self.unique_identifier}\n)'
    
 @dataclass 
 class NoConnect(Serializable):

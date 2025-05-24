@@ -186,7 +186,7 @@ def part_to_kicad6(part, tx) -> str:
     position = Position(
         x=mil_to_mm(origin.x),
         y=mil_to_mm(origin.y),
-        angle=rotation if rotation != 0 else None
+        angle=rotation  # Always include angle for symbols
     )
     
     # Create properties
@@ -362,7 +362,7 @@ def pin_label_to_kicad6(pin, tx) -> str:
     position = Position(
         x=mil_to_mm(pt.x),
         y=mil_to_mm(pt.y),
-        angle=rotation if rotation != 0 else None
+        angle=rotation  # Always include angle for labels
     )
 
     effects = create_text_effects(size=mil_to_mm(PIN_LABEL_FONT_SIZE))
