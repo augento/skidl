@@ -278,8 +278,12 @@ def draw_cmd_to_svg(draw_cmd, tx, part, net_stubs, max_stub_len):
             start = Point(*shape["at"][0:2])
             rotation = shape["at"][2]
             justify = (
-                shape["effects"].get("justify", shape.get("justify", "left")).lower()
+                shape["effects"].get("justify", shape.get("justify", "left"))[0].lower()
             )
+            justify = {
+                    'r': "right",
+                    'l': "left",
+                    }[justify[0]]
             dir = {"right": Point(-1, 0), "left": Point(1, 0)}[justify] * Tx().rot(
                 rotation
             )
